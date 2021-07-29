@@ -77,7 +77,7 @@ void PORT5_IRQHandler(void)
         else
             left_motor_count++;
 
-        MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN2);
+ //       MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN2);
     }
 
     /* Toggling the output on the LED */
@@ -88,7 +88,7 @@ void PORT5_IRQHandler(void)
         else
             right_motor_count++;
 
-        MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN2);
+ //       MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2, GPIO_PIN2);
     }
 
 }

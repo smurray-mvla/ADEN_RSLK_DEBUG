@@ -6,11 +6,13 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "Library/ADC14.h"
 #include "Library/Reflectance.h"
 #include "Library/Clock.h"
 #include "Library/Bump.h"
 #include "Library/Motor.h"
 #include "Library/Encoder.h"
+
 
 void Initialize_System();
 
@@ -33,6 +35,10 @@ int led_lp_blink_on = 0;
 int gc_left_motor_count = 0;
 int gc_right_motor_count = 0;
 int gc_motor_count_reset = 0;
+
+float gc_ir_left_volt = 0.00;
+float gc_ir_center_volt = 0.00;
+float gc_ir_right_volt = 0.00;
 
 
 void RedLED_Init(void){
@@ -59,6 +65,9 @@ void ColorLED_Init(void){
 
 int main(void)
 {
+    int first = 0;
+    uint32_t raw17,raw12,raw16;
+    double voltage_bit_value = 3.3/16384;
     // SMCLK = 12Mhz
     //
     Clock_Init48MHz();
@@ -68,6 +77,8 @@ int main(void)
     // move these into the Library later..
     RedLED_Init();
     ColorLED_Init();
+
+    ADC0_InitSWTriggerCh17_12_16();
 
     Reflectance_Init();
 
@@ -82,6 +93,13 @@ int main(void)
 
     while (1)
     {
+        // only read the IR sensor after guaranteed time for conversion
+        if (first == 1) {
+            ADC_Read17_12_16(&raw17,&raw12,&raw16);
+            gc_ir_left_volt = (raw16&0x03FFF)*voltage_bit_value;
+            gc_ir_center_volt = (raw12&0x03FFF)*voltage_bit_value;
+            gc_ir_right_volt = (raw17&0x03FFF)*voltage_bit_value;
+        }
         // Read Reflectance data into a byte.
         // Each bit corresponds to a sensor on the light bar
         light_data = Reflectance_Read(1000);
@@ -116,9 +134,13 @@ int main(void)
         BLUEOUT = led_lp_blue_data;
         GREENOUT = led_lp_green_data;
         REDOUT = led_lp_red_data;
-  //      REDLED = led_lp_blink_data;
-
-        MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P8, GPIO_PIN0);
+        if (led_lp_blink_data == 1 && (led_lp_blink_on & 0x80) ) {
+           REDLED = 1;
+        } else {
+            REDLED = 0;
+        }
+        led_lp_blink_on++;
+//        MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P8, GPIO_PIN0);
 
 
         //printf("test");
@@ -140,7 +162,9 @@ int main(void)
         gc_left_motor_count = get_left_motor_count();
         gc_right_motor_count = get_right_motor_count();
 
-        Clock_Delay1ms(10);
+        ADC_Start17_12_16();
+        Clock_Delay1ms(2);
+        first = 1;
     }
 }
 
@@ -162,9 +186,9 @@ void Initialize_System()
 
     /* Configuring SysTick to trigger at 1500000 (MCLK is 1.5MHz so this will
      * make it toggle every 1s) */
-    MAP_SysTick_enableModule();
-    MAP_SysTick_setPeriod(4800000);
-    MAP_SysTick_enableInterrupt();
+//   MAP_SysTick_enableModule();
+//   MAP_SysTick_setPeriod(4800000);
+//    MAP_SysTick_enableInterrupt();
 
     /*
      * Configure P1.1 for button interrupt
@@ -216,12 +240,4 @@ void PORT1_IRQHandler(void)
 
 void SysTick_Handler(void)
 {
-   led_lp_blink_on++;
-   if (led_lp_blink_data && (led_lp_blink_on & 0x04)) {
-       REDLED = 1;
-   } else {
-       REDLED = 0;
-   }
-
-   //MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P1, GPIO_PIN0);
 }
